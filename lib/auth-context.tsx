@@ -9,6 +9,8 @@ interface AuthContextType {
   login: (email: string, password: string) => boolean
   signup: (name: string, email: string, password: string, role: 'student' | 'admin') => boolean
   logout: () => void
+  forgotPassword: (email: string) => boolean
+  resetPassword: (token: string, newPassword: string) => boolean
   isAuthenticated: boolean
 }
 
@@ -56,9 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const forgotPassword = useCallback((_email: string) => {
+    // Demo: always succeed and simulate sending a reset email
+    return true
+  }, [])
+
+  const resetPassword = useCallback((_token: string, _newPassword: string) => {
+    // Demo: always succeed and simulate resetting the password
+    return true
+  }, [])
+
   return (
     <AuthContext.Provider
-      value={{ user, login, signup, logout, isAuthenticated: !!user }}
+      value={{ user, login, signup, logout, forgotPassword, resetPassword, isAuthenticated: !!user }}
     >
       {children}
     </AuthContext.Provider>
