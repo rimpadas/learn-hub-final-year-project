@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
 import { useCourses } from '@/lib/course-context'
 import { useEnrollment } from '@/lib/enrollment-context'
 import { Button } from '@/components/ui/button'
@@ -17,13 +16,16 @@ import {
   LogIn,
   Trophy,
 } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth()
   const { courses } = useCourses()
   const { getEnrollmentsForUser, getProgress } = useEnrollment()
+  const auth = JSON.parse(localStorage.getItem('auth') || '{}')
+console.log(auth)
 
-  if (!isAuthenticated || !user) {
+  if (!auth || !user) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <LogIn className="mb-4 h-12 w-12 text-muted-foreground" />

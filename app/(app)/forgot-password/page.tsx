@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,28 +13,46 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const { forgotPassword } = useAuth()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) {
-      toast.error('Please enter your email address')
-      return
-    }
-    setLoading(true)
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 1000))
-
-    const success = forgotPassword(email)
-    if (success) {
-      setSent(true)
-      toast.success('Password reset link sent!')
-    } else {
-      toast.error('Something went wrong. Please try again.')
-    }
-    setLoading(false)
+  if (!email) {
+    toast.error("Please enter your email");
+    return;
   }
+
+  setLoading(true);
+
+  try {
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.message || "Something went wrong");
+      setLoading(false);
+      return;
+    }
+
+    setSent(true);
+    toast.success("Reset link generated!");
+
+    // Optional: open reset link automatically
+    console.log("Reset link:", data.resetLink);
+
+  } catch (error) {
+    toast.error("Server error");
+  }
+
+  setLoading(false);
+};
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-12">

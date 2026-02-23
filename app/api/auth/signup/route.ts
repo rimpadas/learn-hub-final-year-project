@@ -1,43 +1,30 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import User from '@/models/User';
+import { connectDB } from "@/lib/db";
 
-// POST /api/auth/signup
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
-    const { name, email, password, role } = body
+    const { name, email, password, role } = await req.json();
 
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: 'Name, email, and password are required' },
-        { status: 400 }
-      )
+    await connectDB();
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json({ message: "User already exists" }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
-      )
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // In production: hash password and save to MongoDB
-    // const hashedPassword = await bcrypt.hash(password, 12)
-    // await db.collection('users').insertOne({ name, email, hashedPassword, role })
-
-    const newUser = {
-      id: `u${Date.now()}`,
+    const user = await User.create({
       name,
       email,
-      role: role || 'student',
-      enrolledCourses: [],
-      createdAt: new Date().toISOString(),
-    }
+      password: hashedPassword,
+      role
+    });
 
-    return NextResponse.json(
-      { user: newUser, message: 'Account created successfully' },
-      { status: 201 }
-    )
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    return NextResponse.json({ message: "User created", user });
+  } catch (error) {
+    return NextResponse.json({ message: "Signup failed" }, { status: 500 });
   }
 }

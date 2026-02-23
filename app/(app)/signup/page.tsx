@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { GraduationCap, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@/lib/auth-context'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -25,24 +25,42 @@ export default function SignupPage() {
   const [role, setRole] = useState<'student' | 'admin'>('student')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signup } = useAuth()
   const router = useRouter()
+  const { signup } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
 
-    await new Promise((r) => setTimeout(r, 500))
+  try {
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        role,
+      }),
+    })
 
-    const success = signup(name, email, password, role)
-    if (success) {
-      toast.success('Account created successfully!')
-      router.push(role === 'admin' ? '/admin' : '/dashboard')
-    } else {
-      toast.error('Something went wrong')
+    const data = await res.json()
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Signup failed')
     }
+
+    toast.success('Account created successfully!')
+    signup(name, email, password, role)
+    router.push(role === 'admin' ? '/admin' : '/dashboard')
+  } catch (error: any) {
+    toast.error(error.message || 'Something went wrong')
+  } finally {
     setLoading(false)
   }
+}
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-12">

@@ -3,38 +3,63 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { GraduationCap, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@/lib/auth-context'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
 
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 500))
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    })
 
-    const success = login(email, password)
-    if (success) {
-      toast.success('Welcome back!')
-      router.push('/dashboard')
-    } else {
-      toast.error('Invalid credentials')
+    const data = await res.json()
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Login failed')
     }
+
+    // Save JWT token in localStorage
+    localStorage.setItem('auth', JSON.stringify({
+  token: data.token,
+  user: data.user.email,
+  role: data.user.role
+}))
+
+    toast.success('Welcome back!')
+    login(email, password)
+
+    // Redirect based on role (if returned from backend)
+    if (data.user?.role === 'admin') {
+      router.push('/admin')
+    } else {
+      router.push('/dashboard')
+    }
+  } catch (error: any) {
+    toast.error(error.message || 'Invalid credentials')
+  } finally {
     setLoading(false)
   }
+}
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-12">
@@ -55,7 +80,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="student@learnhub.com"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

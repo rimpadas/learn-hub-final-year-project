@@ -1,35 +1,31 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import User from "@/models/User";
+import { connectDB } from "@/lib/db";
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { token, password } = await request.json()
+    const { token, newPassword } = await req.json();
 
-    if (!token || !password) {
-      return NextResponse.json(
-        { error: 'Token and password are required' },
-        { status: 400 }
-      )
+    await connectDB();
+
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return NextResponse.json({ message: "Invalid or expired token" }, { status: 400 });
     }
 
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      )
-    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
 
-    // In production: validate the token against the database,
-    // check if it hasn't expired, hash the new password with bcrypt,
-    // update the user's password, and invalidate the token.
+    await user.save();
 
-    // Demo: always succeed
-    return NextResponse.json({
-      message: 'Password has been reset successfully.',
-    })
-  } catch {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ message: "Password reset successful" });
+  } catch (error) {
+    return NextResponse.json({ message: "Reset failed" }, { status: 500 });
   }
 }

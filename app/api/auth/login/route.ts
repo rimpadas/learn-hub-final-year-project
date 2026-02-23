@@ -1,50 +1,33 @@
-import { NextResponse } from 'next/server'
-import { users } from '@/lib/data'
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import User from "@/models/User";
+import { connectDB } from "@/lib/db";
 
-// POST /api/auth/login
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
-    const { email, password } = body
+    const { email, password } = await req.json();
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
-    }
+    await connectDB();
 
-    const user = users.find((u) => u.email === email)
-
+    const user = await User.findOne({ email });
     if (!user) {
-      // For demo, create a new user session
-      return NextResponse.json({
-        user: {
-          id: `u${Date.now()}`,
-          name: email.split('@')[0],
-          email,
-          role: 'student',
-          enrolledCourses: [],
-          createdAt: new Date().toISOString(),
-        },
-        message: 'Login successful',
-      })
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
     }
 
-    // In production: validate password with bcrypt
-    // const isValid = await bcrypt.compare(password, user.hashedPassword)
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
+    }
 
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        enrolledCourses: user.enrolledCourses,
-      },
-      message: 'Login successful',
-    })
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1d" }
+    );
+
+    return NextResponse.json({ message: "Login successful", token, user });
+  } catch (error) {
+    return NextResponse.json({ message: "Login failed" }, { status: 500 });
   }
 }
