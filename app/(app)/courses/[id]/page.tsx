@@ -1,6 +1,6 @@
-'use client'
+ 'use client'
 
-import { use } from 'react'
+import { use, useState, useRef, useEffect } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { useCourses } from '@/lib/course-context'
@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { Checkbox } from '@/components/ui/checkbox'
+// Checkbox removed: lesson completion is automatic (video/reading/quiz)
 import {
   ArrowLeft,
   BookOpen,
@@ -25,6 +25,8 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import Quiz from '@/components/quiz'
+import Certificate from '@/components/certificate'
 
 export default function CourseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -50,6 +52,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
     ? enrollments.find((e) => e.courseId === course.id && e.userId === user.id)
     : null
 
+  const [selectedLesson, setSelectedLesson] = useState<any | null>(null)
+  const [showCertificate, setShowCertificate] = useState(false)
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const watchedRef = useRef<Record<string, boolean>>({})
+
+  const canPlayLesson = (lesson: any, idx: number) => {
+    // admin always full access
+    if (user?.role === 'admin') return true
+    // enrolled users can view all lessons
+    if (enrolled) return true
+    // normal users (not enrolled) get a short preview of first 2 lessons (all types)
+    return idx < 2
+  }
+
   const handleEnroll = () => {
     if (!isAuthenticated || !user) {
       toast.error('Please sign in to enroll')
@@ -59,9 +76,20 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
     toast.success(`Enrolled in "${course.title}"!`)
   }
 
-  const handleLessonToggle = (lessonId: string) => {
+  // manual toggles removed — completion is handled automatically by lesson actions
+
+  // mark video complete when watched sufficiently or ended
+  const markVideoComplete = (lessonId: string) => {
     if (!user) return
+    if (watchedRef.current[lessonId]) return
+    const already = actualEnrollment?.completedLessons.includes(lessonId)
+    if (already) {
+      watchedRef.current[lessonId] = true
+      return
+    }
+    watchedRef.current[lessonId] = true
     completeLesson(course.id, user.id, lessonId, course.syllabus.length)
+    toast.success('Lesson marked complete')
   }
 
   const lessonIcon = (type: string) => {
@@ -77,6 +105,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  // scroll selected lesson into view (video/reading/quiz cards)
+  useEffect(() => {
+    if (!selectedLesson) return
+    const el = document.getElementById(`lesson-${selectedLesson.id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedLesson])
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <Link href="/courses">
@@ -91,6 +128,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
         <div className="lg:col-span-2">
           {/* Course Header */}
           <div className="rounded-xl border border-border bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6 md:p-8">
+            {course.image && (
+              <div className="mb-4 overflow-hidden rounded-md">
+                <img src={course.image} alt={course.title} className="w-full h-56 object-cover" />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="text-primary border-primary/30">
                 {course.category}
@@ -129,6 +171,82 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
+          {/* Video Player (selected lesson) */}
+              {selectedLesson && selectedLesson.type === 'video' && (
+            <Card id={`lesson-${selectedLesson.id}`} className="mt-6">
+              <CardHeader>
+                <CardTitle className="font-heading text-lg">{selectedLesson.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {canPlayLesson(selectedLesson, course.syllabus.findIndex((l) => l.id === selectedLesson.id)) ? (
+                  <video
+                    key={selectedLesson.id}
+                    ref={(el) => {
+                      videoRef.current = el
+                    }}
+                    controls
+                    src={selectedLesson.videoUrl}
+                    className="w-full rounded-md"
+                    onTimeUpdate={(e) => {
+                      const t = e.target as HTMLVideoElement
+                      if (!t.duration || !t.currentTime) return
+                      const pct = t.currentTime / t.duration
+                      if (pct >= 0.9) {
+                        markVideoComplete(selectedLesson.id)
+                      }
+                    }}
+                    onEnded={() => markVideoComplete(selectedLesson.id)}
+                  />
+                ) : (
+                  <div className="rounded-md bg-muted p-4 text-center">
+                    <p className="mb-3">Preview limited. Enroll to view the full lesson.</p>
+                    {isAuthenticated ? (
+                      <Button onClick={() => { toast.error('Please enroll to view this lesson') }}>
+                        Enroll to Continue
+                      </Button>
+                    ) : (
+                      <Link href="/login">
+                        <Button>Sign in to Enroll</Button>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+            {/* Reading viewer */}
+            {selectedLesson && selectedLesson.type === 'reading' && (
+              <Card id={`lesson-${selectedLesson.id}`} className="mt-6">
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg">{selectedLesson.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="w-full">
+                    <iframe
+                      src={selectedLesson.readingUrl || '/demo/reading-sample.html'}
+                      className="w-full h-[600px] rounded-md border"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quiz */}
+            {selectedLesson && selectedLesson.type === 'quiz' && selectedLesson.quiz && (
+              <div id={`lesson-${selectedLesson.id}`} className="mt-6">
+                <Quiz
+                  questions={selectedLesson.quiz.questions}
+                  onComplete={(score, total) => {
+                    if (!user) return
+                    // mark lesson complete on quiz submit
+                    completeLesson(course.id, user.id, selectedLesson.id, course.syllabus.length)
+                    toast.success(`Quiz completed ${score}/${total}`)
+                  }}
+                />
+              </div>
+            )}
+
           {/* Syllabus */}
           <Card className="mt-6">
             <CardHeader>
@@ -142,24 +260,34 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
                 {course.syllabus.map((lesson, index) => {
                   const isCompleted =
                     actualEnrollment?.completedLessons.includes(lesson.id) ?? false
+                  const canPlay = canPlayLesson(lesson, index)
+                  const isVideo = lesson.type === 'video'
                   return (
                     <div
                       key={lesson.id}
+                      onClick={() => {
+                        if (!canPlay) {
+                          if (isAuthenticated) toast.error('Enroll to view the full lesson')
+                          else toast('Sign in to enroll and access full lessons')
+                          return
+                        }
+                        setSelectedLesson(lesson)
+                        // auto-mark reading lessons as complete when opened
+                        if (lesson.type === 'reading' && user) {
+                          const already = actualEnrollment?.completedLessons.includes(lesson.id)
+                          if (!already) {
+                            completeLesson(course.id, user.id, lesson.id, course.syllabus.length)
+                            toast.success('Reading marked complete')
+                          }
+                        }
+                      }}
                       className={`flex items-center gap-3 rounded-lg px-3 py-3 transition-colors ${
                         isCompleted ? 'bg-primary/5' : 'hover:bg-muted/50'
-                      }`}
+                      } ${canPlay ? 'cursor-pointer' : ''} ${!canPlay ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                      {enrolled ? (
-                        <Checkbox
-                          checked={isCompleted}
-                          onCheckedChange={() => handleLessonToggle(lesson.id)}
-                          aria-label={`Mark "${lesson.title}" as complete`}
-                        />
-                      ) : (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border text-xs text-muted-foreground">
-                          {index + 1}
-                        </span>
-                      )}
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs text-muted-foreground">
+                        {isCompleted ? '✓' : index + 1}
+                      </span>
                       <div className="flex flex-1 items-center gap-2">
                         {lessonIcon(lesson.type)}
                         <span
@@ -179,6 +307,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
                         <span className="text-xs text-muted-foreground">
                           {lesson.duration}
                         </span>
+                        {!enrolled && (index < 2 ? (
+                          <Badge variant="outline" className="text-xs ml-2">Preview</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs ml-2">Locked</Badge>
+                        ))}
                       </div>
                       {isCompleted && (
                         <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -197,7 +330,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
             <CardContent className="p-6">
               <div className="mb-4 text-center">
                 <span className="font-heading text-3xl font-bold text-foreground">
-                  {course.price === 0 ? 'Free' : `$${course.price}`}
+                  {course.price === 0 ? 'Free' : `₹${course.price}`}
                 </span>
               </div>
 
@@ -214,6 +347,20 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     <Progress value={progress} className="h-2" />
                   </div>
+                  {progress === 100 && user && (
+                    <div className="mt-3 text-center">
+                      <Button onClick={() => setShowCertificate(true)} className="w-full">
+                        View / Download Certificate
+                      </Button>
+                      {showCertificate && (
+                        <Certificate
+                          name={user.name}
+                          courseTitle={course.title}
+                          onClose={() => setShowCertificate(false)}
+                        />
+                      )}
+                    </div>
+                  )}
                   <Separator />
                   <p className="text-center text-xs text-muted-foreground">
                     Check the lessons above to track your progress

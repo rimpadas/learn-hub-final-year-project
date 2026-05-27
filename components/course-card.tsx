@@ -2,9 +2,8 @@
 
 import Link from 'next/link'
 import type { Course } from '@/lib/types'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { BookOpen, Clock, Star, Users } from 'lucide-react'
+import { Clock, Star, Users } from 'lucide-react'
 
 interface CourseCardProps {
   course: Course
@@ -21,15 +20,21 @@ export function CourseCard({ course }: CourseCardProps) {
     <Link href={`/courses/${course.id}`}>
       <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5">
         <div className="relative h-44 overflow-hidden bg-muted">
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-secondary to-accent/10">
-            <BookOpen className="h-12 w-12 text-primary/40" />
+          <img
+            src={course.image}
+            alt={course.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/25" />
+
+          <div className="absolute left-3 top-3">
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium bg-white/90 text-foreground shadow-sm`}
+            >
+              {course.level}
+            </span>
           </div>
-          <Badge
-            className={`absolute right-3 top-3 text-xs ${levelColors[course.level]}`}
-            variant="outline"
-          >
-            {course.level}
-          </Badge>
+
         </div>
         <CardContent className="p-4">
           <p className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">
@@ -60,7 +65,7 @@ export function CourseCard({ course }: CourseCardProps) {
             )}
           </div>
           <span className="font-heading text-sm font-bold text-foreground">
-            {course.price === 0 ? 'Free' : `$${course.price}`}
+            {course.price === 0 ? 'Free' : `₹${course.price}`}
           </span>
         </CardFooter>
       </Card>

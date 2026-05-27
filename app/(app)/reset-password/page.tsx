@@ -13,8 +13,10 @@ import { toast } from 'sonner'
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams()
-  const token = searchParams.get('token') || ''
+  const urlToken = searchParams.get('token') || ''
   const emailParam = searchParams.get('email') || ''
+  const [token, setToken] = useState(urlToken)
+  const [showTokenInput, setShowTokenInput] = useState(!urlToken)
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -49,9 +51,7 @@ function ResetPasswordForm() {
     }
 
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1000))
-
-    const result = resetPassword(token, password)
+    const result = await resetPassword(token, password)
     if (result) {
       setSuccess(true)
       toast.success('Password reset successfully!')
@@ -61,26 +61,8 @@ function ResetPasswordForm() {
     setLoading(false)
   }
 
-  if (!token) {
-    return (
-      <div className="flex min-h-[80vh] items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-              <ShieldCheck className="h-7 w-7 text-destructive" />
-            </div>
-            <h2 className="font-heading text-xl font-bold text-foreground">Invalid Reset Link</h2>
-            <p className="text-sm text-muted-foreground">
-              This password reset link is invalid or has expired. Please request a new one.
-            </p>
-            <Link href="/forgot-password">
-              <Button>Request New Reset Link</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  // If no token in URL, allow user to paste token manually
+  // Do not show an 'Invalid Reset Link' page here; show the form and let API validate the token
 
   if (success) {
     return (
@@ -119,6 +101,24 @@ function ResetPasswordForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Token input: use URL token if present, otherwise allow manual paste */}
+            {showTokenInput && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="token">Reset Token</Label>
+                <Input
+                  id="token"
+                  placeholder="Paste your reset token here"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">If you received a token from the forgot-password flow, paste it here. Otherwise open the reset link that was returned.</p>
+              </div>
+            )}
+
+            {!showTokenInput && (
+              <div className="text-sm text-muted-foreground">Using token from link.</div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="password">New Password</Label>
               <div className="relative">

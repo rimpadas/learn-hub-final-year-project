@@ -30,6 +30,19 @@ export interface SyllabusItem {
   title: string
   duration: string
   type: 'video' | 'reading' | 'quiz'
+  // optional URL for video lessons
+  videoUrl?: string
+  // optional URL for reading lessons
+  readingUrl?: string
+  // optional quiz payload for quiz lessons
+  quiz?: {
+    questions: Array<{
+      id: string
+      text: string
+      options: string[]
+      answer: number
+    }>
+  }
 }
 
 export interface Enrollment {

@@ -24,36 +24,17 @@ export default function LoginPage() {
   setLoading(true)
 
   try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      throw new Error(data.message || 'Login failed')
+    const ok = await login(email, password)
+    if (!ok) {
+      throw new Error('Invalid credentials')
     }
-
-    // Save JWT token in localStorage
-    localStorage.setItem('auth', JSON.stringify({
-  token: data.token,
-  user: data.user.email,
-  role: data.user.role
-}))
-
+    // read role from stored auth
+    const raw = localStorage.getItem('auth')
+    const parsed = raw ? JSON.parse(raw) : null
+    const role = parsed?.user?.role
     toast.success('Welcome back!')
-    login(email, password)
-
-    // Redirect based on role (if returned from backend)
-    if (data.user?.role === 'admin') {
-      router.push('/admin')
-    } else {
-      router.push('/dashboard')
-    }
+    if (role === 'admin') router.push('/admin')
+    else router.push('/dashboard')
   } catch (error: any) {
     toast.error(error.message || 'Invalid credentials')
   } finally {

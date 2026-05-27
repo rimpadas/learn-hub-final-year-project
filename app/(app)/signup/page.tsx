@@ -33,28 +33,14 @@ export default function SignupPage() {
   setLoading(true)
 
   try {
-    const res = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        role,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      throw new Error(data.message || 'Signup failed')
-    }
-
+    const ok = await signup(name, email, password, role)
+    if (!ok) throw new Error('Signup failed')
+    // after signup, auth-context logs in and stores auth
+    const raw = localStorage.getItem('auth')
+    const parsed = raw ? JSON.parse(raw) : null
+    const userRole = parsed?.user?.role
     toast.success('Account created successfully!')
-    signup(name, email, password, role)
-    router.push(role === 'admin' ? '/admin' : '/dashboard')
+    router.push(userRole === 'admin' ? '/admin' : '/dashboard')
   } catch (error: any) {
     toast.error(error.message || 'Something went wrong')
   } finally {

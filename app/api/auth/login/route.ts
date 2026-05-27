@@ -26,7 +26,11 @@ export async function POST(req: Request) {
       { expiresIn: "1d" }
     );
 
-    return NextResponse.json({ message: "Login successful", token, user });
+    // remove password before returning
+    const returned = user.toObject ? user.toObject() : JSON.parse(JSON.stringify(user));
+    delete returned.password;
+
+    return NextResponse.json({ message: "Login successful", token, user: returned });
   } catch (error) {
     return NextResponse.json({ message: "Login failed" }, { status: 500 });
   }

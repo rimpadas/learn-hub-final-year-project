@@ -20,10 +20,14 @@ export async function POST(req: Request) {
       name,
       email,
       password: hashedPassword,
-      role
+      role,
     });
 
-    return NextResponse.json({ message: "User created", user });
+    // Remove sensitive fields before returning
+    const returned = user.toObject ? user.toObject() : JSON.parse(JSON.stringify(user));
+    delete returned.password;
+
+    return NextResponse.json({ message: 'User created', user: returned });
   } catch (error) {
     return NextResponse.json({ message: "Signup failed" }, { status: 500 });
   }
